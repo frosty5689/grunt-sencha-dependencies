@@ -36,10 +36,11 @@ var grunt        = require("grunt"),
  *                                 relative to the pageRoot
  * @param {boolean} pageToProcess The page that will be processed when looking for tags
  */
-function PhantomJsHeadlessAnalyzer(appJsFilePath, senchaDirOrAppJson, pageRoot, pageToProcess, includeAllScriptTags) {
+function PhantomJsHeadlessAnalyzer(appJsFilePath, senchaDirOrAppJson, webRoot, pageRoot, pageToProcess, includeAllScriptTags) {
     this.appJsFilePath              = appJsFilePath;
     this.setPageRoot(pageRoot);
     this.pageToProcess              = pageToProcess;
+    this.webRoot                    = webRoot;
     this.includeAllScriptTags = includeAllScriptTags;
     if (typeof senchaDirOrAppJson === "object") {
         // we're in mode where we use appJson
@@ -100,11 +101,11 @@ PhantomJsHeadlessAnalyzer.prototype.setSenchaDir = function (_senchaDir) {
 };
 
 PhantomJsHeadlessAnalyzer.prototype.getSenchaFrameworkDir = function () {
-    return path.normalize(this.pageRoot + path.sep + this.senchaDir);
+    return path.normalize(this.webRoot + path.sep + this.pageRoot + path.sep + this.senchaDir);
 };
 
 PhantomJsHeadlessAnalyzer.prototype.getSenchaCoreFile = function () {
-    return path.normalize(this.pageRoot + path.sep + this.senchaDir  + path.sep + (this.isTouch ? "sencha-touch-debug.js" : "ext-debug.js"));
+    return path.normalize(this.webRoot + path.sep + this.pageRoot + path.sep + this.senchaDir  + path.sep + (this.isTouch ? "sencha-touch-debug.js" : "ext-debug.js"));
 };
 
 PhantomJsHeadlessAnalyzer.prototype.normaliseFilePaths = function (filePaths) {
@@ -127,10 +128,10 @@ PhantomJsHeadlessAnalyzer.prototype.normaliseFilePath = function (filePath) {
 PhantomJsHeadlessAnalyzer.prototype.reorderFiles = function (history) {
     var files = [],
         coreFile = this.getSenchaCoreFile(),
-        appFile = path.normalize(this.pageRoot + path.sep + this.appJsFilePath);
+        appFile = path.normalize(this.webRoot + path.sep + this.pageRoot + path.sep + this.appJsFilePath);
     this.addIfNotExcluded(coreFile, files);
     for (var i = 0, len = history.length; i < len; i++) {
-        var filePath = history[i];
+        var filePath = this.webRoot + history[i];
         if (filePath !== appFile &&
                 !/\/ext(-all|-all-debug|-debug){0,1}.js/.test(filePath) &&
                 !/\/sencha-touch(-all|-all-debug|-debug){0,1}.js/.test(filePath) &&
@@ -161,7 +162,7 @@ PhantomJsHeadlessAnalyzer.prototype.addIfNotExcluded = function (filePath, array
 PhantomJsHeadlessAnalyzer.prototype.setHtmlPageToProcess = function (tempPage) {
     if (this.pageToProcess) {
         // create the html page
-        grunt.file.copy(this.pageRoot + path.sep + this.pageToProcess, tempPage, {
+        grunt.file.copy(this.webRoot + path.sep + this.pageRoot + path.sep + this.pageToProcess, this.webRoot + path.sep + tempPage, {
             process: function (inputString) {
                 // we need to inject the bridge
                 return inputString.replace("<head>", "<head>" + sendMessageString);
@@ -198,10 +199,10 @@ function turnUrlIntoRelativeDirectory(relativeTo, url) {
 PhantomJsHeadlessAnalyzer.prototype.startWebServerToHostPage = function (tempPage) {
     this.app = connect()
               //.use(connect.logger('dev'))
-              .use(connect["static"](process.cwd()))
+              .use(connect["static"](this.webRoot))
               .listen(3000);
     var pathSepReplacement = new RegExp("\\" + path.sep, "g");
-    grunt.log.debug("Connect started: " + "http://localhost:3000/" + tempPage.replace(pathSepReplacement, "/") + "  -  " + process.cwd());
+    grunt.log.debug("Connect started: " + "http://localhost:3000/" + tempPage.replace(pathSepReplacement, "/") + "  -  " + this.webRoot);
     return "http://localhost:3000/" + tempPage.replace(pathSepReplacement, "/");
 };
 
@@ -253,7 +254,7 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
 
     function safeDeleteTempFile() {
         try {
-            grunt.file["delete"](tempPage);
+            grunt.file["delete"](me.webRoot + tempPage);
         } catch (e) {
             grunt.log.warn("An error occured whilst trying to delete the temporary file " + tempPage);
         }
@@ -320,7 +321,9 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
     this.setHtmlPageToProcess(tempPage);
 
     // Spawn phantomjs
-    phantomjs.spawn(this.startWebServerToHostPage(tempPage), {
+    var page = this.startWebServerToHostPage(tempPage);
+    console.log('page: '  + page);
+    phantomjs.spawn(page, {
         // Additional PhantomJS options.
         options: {
             phantomScript: asset("phantomjs" + path.sep + "main.js"),

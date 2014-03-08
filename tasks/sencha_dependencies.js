@@ -23,6 +23,7 @@ module.exports = function (grunt) {
     function initialiseAppJsonProcessing(instance, file, options) {
         var pageToProcess = "index.html",
             rootDir       = options.pageRoot || file,
+            webRoot       = options.webRoot || process.cwd(),
             appJson       = grunt.file.readJSON(file + path.sep + "app.json");
         if (appJson.indexHtmlPath) {
             pageToProcess = appJson.indexHtmlPath;
@@ -35,7 +36,7 @@ module.exports = function (grunt) {
             grunt.log.error("Could not detect which file contains your Ext.application - Please set the appJs property");
         }
         return new PhantomJsHeadlessAnalyzer(
-            file, appJson, rootDir, pageToProcess, options.includeAllScriptTags
+            file, appJson, webRoot, rootDir, pageToProcess, options.includeAllScriptTags
         );
     }
 
@@ -59,7 +60,7 @@ module.exports = function (grunt) {
         } else {
             grunt.log.writeln("Processing Sencha app file " + (options.pageToProcess ?  options.pageToProcess : options.appJs) + "...");
             dependencyChecker = new PhantomJsHeadlessAnalyzer(
-                options.appJs, options.senchaDir, options.pageRoot, options.pageToProcess, options.includeAllScriptTags
+                options.appJs, options.senchaDir, options.webRoot, options.pageRoot, options.pageToProcess, options.includeAllScriptTags
             );
         }
         dependencyChecker.setExclusions(options.exclude);
