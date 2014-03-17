@@ -111,7 +111,9 @@ PhantomJsHeadlessAnalyzer.prototype.getSenchaCoreFile = function () {
 PhantomJsHeadlessAnalyzer.prototype.normaliseFilePaths = function (filePaths) {
     var output = [];
     for (var i = 0, len = filePaths.length; i < len; i++) {
-        output.push(this.normaliseFilePath(filePaths[i]));
+        if (filePaths[i]) {
+            output.push(this.normaliseFilePath(filePaths[i]));
+        }
     }
     return output;
 };
