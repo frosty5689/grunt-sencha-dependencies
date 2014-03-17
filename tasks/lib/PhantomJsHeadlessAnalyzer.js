@@ -117,12 +117,18 @@ PhantomJsHeadlessAnalyzer.prototype.normaliseFilePaths = function (filePaths) {
 };
 
 PhantomJsHeadlessAnalyzer.prototype.normaliseFilePath = function (filePath) {
+    console.log("filePath: " + filePath);
     if (/^http:/.test(filePath)) {
         filePath = filePath.replace(/^http:\/\/localhost:3000\/*/, "");
+    } else if (/^\//.test(filePath)) {
+        filePath = filePath.substring(1);
     } else {
         filePath = this.pageRoot + path.sep + filePath;
-    }
-    return path.normalize(filePath);
+    } 
+    var normalized = path.normalize(filePath);
+    console.log("normalized: " + normalized);
+    console.log("----------------------");
+    return normalized;
 };
 
 PhantomJsHeadlessAnalyzer.prototype.reorderFiles = function (history) {
