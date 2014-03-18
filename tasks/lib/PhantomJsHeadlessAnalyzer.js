@@ -15,6 +15,7 @@ var grunt        = require("grunt"),
     // Nodejs libs.
     path         = require("path"),
     fs           = require("fs"),
+    portfinder   = require("portfinder"),
     // Get an asset file, local to the root of the project.
     asset        = path.join.bind(null, __dirname, ".."),
     sendMessageString = ["<script>",
@@ -119,18 +120,14 @@ PhantomJsHeadlessAnalyzer.prototype.normaliseFilePaths = function (filePaths) {
 };
 
 PhantomJsHeadlessAnalyzer.prototype.normaliseFilePath = function (filePath) {
-    console.log("filePath: " + filePath);
     if (/^http:/.test(filePath)) {
-        filePath = filePath.replace(/^http:\/\/localhost:3000\/*/, "");
+        filePath = filePath.replace(new RegExp("^http:\\/\\/localhost:" + this.port + "\\/*"), "");
     } else if (/^\//.test(filePath)) {
         filePath = filePath.substring(1);
     } else {
         filePath = this.pageRoot + path.sep + filePath;
     } 
-    var normalized = path.normalize(filePath);
-    console.log("normalized: " + normalized);
-    console.log("----------------------");
-    return normalized;
+    return path.normalize(filePath);
 };
 
 PhantomJsHeadlessAnalyzer.prototype.reorderFiles = function (history) {
@@ -181,7 +178,7 @@ PhantomJsHeadlessAnalyzer.prototype.setHtmlPageToProcess = function (tempPage) {
         var htmlString = ["<html><head>",
             sendMessageString,
             "<script src='",
-            turnUrlIntoRelativeDirectory(this.pageRoot, this.getSenchaCoreFile()),
+            turnUrlIntoRelativeDirectory(this.pageRoot, this.getSenchaCoreFile(), this.port),
             "/",
             (this.isTouch ? "sencha-touch-debug.js" : "ext-debug.js"),
             "'></script>",
@@ -194,12 +191,12 @@ PhantomJsHeadlessAnalyzer.prototype.setHtmlPageToProcess = function (tempPage) {
     return tempPage;
 };
 
-function turnUrlIntoRelativeDirectory(relativeTo, url) {
+function turnUrlIntoRelativeDirectory(relativeTo, url, port) {
     if (/^file:/.test(url)) {
         url = url.substring(5);
     }
     if (/^http:/.test(url)) {
-        url = url.substring("http://localhost:3000/".length);
+        url = url.substring(("http://localhost:" + port + "/").length);
     }
     return path.relative(relativeTo, url.substring(0, url.lastIndexOf("/")));
 }
@@ -208,10 +205,10 @@ PhantomJsHeadlessAnalyzer.prototype.startWebServerToHostPage = function (tempPag
     this.app = connect()
               //.use(connect.logger('dev'))
               .use(connect["static"](this.webRoot))
-              .listen(3000);
+              .listen(this.port);
     var pathSepReplacement = new RegExp("\\" + path.sep, "g");
-    grunt.log.debug("Connect started: " + "http://localhost:3000/" + tempPage.replace(pathSepReplacement, "/") + "  -  " + this.webRoot);
-    return "http://localhost:3000/" + tempPage.replace(pathSepReplacement, "/");
+    grunt.log.debug("Connect started: " + "http://localhost:" + this.port + "/" + tempPage.replace(pathSepReplacement, "/") + "  -  " + this.webRoot);
+    return "http://localhost:" + this.port + "/" + tempPage.replace(pathSepReplacement, "/");
 };
 
 PhantomJsHeadlessAnalyzer.prototype.resolveTheTwoFileSetsToBeInTheRightOrder = function (allScripts, history) {
@@ -276,10 +273,10 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
     phantomjs.on("onResourceRequested", function (response) {
         if (!hasSeenSenchaLib) {
             if (/\/ext(-all|-all-debug|-debug){0,1}.js/.test(response.url)) {
-                me.setSenchaDir(turnUrlIntoRelativeDirectory(me.pageRoot, response.url));
+                me.setSenchaDir(turnUrlIntoRelativeDirectory(me.pageRoot, response.url, me.port));
                 hasSeenSenchaLib = true;
             } else if (/\/sencha-touch(-all|-all-debug|-debug){0,1}.js/.test(response.url)) {
-                me.setSenchaDir(turnUrlIntoRelativeDirectory(me.pageRoot, response.url));
+                me.setSenchaDir(turnUrlIntoRelativeDirectory(me.pageRoot, response.url, me.port));
                 me.isTouch = true;
                 hasSeenSenchaLib = true;
             }
@@ -326,31 +323,35 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
         grunt.warn("PhantomJS timed out.");
     });
 
-    this.setHtmlPageToProcess(tempPage);
-
+    me.setHtmlPageToProcess(tempPage);
     // Spawn phantomjs
-    var page = this.startWebServerToHostPage(tempPage);
-    console.log('page: '  + page);
-    phantomjs.spawn(page, {
-        // Additional PhantomJS options.
-        options: {
-            phantomScript: asset("phantomjs" + path.sep + "main.js"),
-            loadImages: false
-        },
-        // Complete the task when done.
-        done: function (err) {
-            try {
-                safeDeleteTempFile();
-                doneFn(me.reorderFiles(
-                    files
-                ));
-            } catch (e) {
-                grunt.log.error(e);
-                safeDeleteTempFile();
-            }
+    portfinder.getPort(function(err, port) {
+        if (err) {
+            throw "Error getting port" + err;
         }
+        me.port = port;
+        var page = me.startWebServerToHostPage(tempPage);
+        console.log('page: '  + page);
+        phantomjs.spawn(page, {
+            // Additional PhantomJS options.
+            options: {
+                phantomScript: asset("phantomjs" + path.sep + "main.js"),
+                loadImages: false
+            },
+            // Complete the task when done.
+            done: function (err) {
+                try {
+                    safeDeleteTempFile();
+                    doneFn(me.reorderFiles(
+                        files
+                    ));
+                } catch (e) {
+                    grunt.log.error(e);
+                    safeDeleteTempFile();
+                }
+            }
+        });
     });
-
 };
 
 module.exports = PhantomJsHeadlessAnalyzer;
