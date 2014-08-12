@@ -325,13 +325,12 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
 
     me.setHtmlPageToProcess(tempPage);
     // Spawn phantomjs
-    portfinder.getPort(function(err, port) {
+    portfinder.getPort(function (err, port) {
         if (err) {
             throw "Error getting port" + err;
         }
         me.port = port;
         var page = me.startWebServerToHostPage(tempPage);
-        console.log('page: '  + page);
         phantomjs.spawn(page, {
             // Additional PhantomJS options.
             options: {
@@ -349,7 +348,8 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
                     grunt.log.error(e);
                     safeDeleteTempFile();
                 }
-            }
+            },
+            failCode: -1
         });
     });
 };
