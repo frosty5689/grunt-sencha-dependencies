@@ -325,18 +325,18 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
 
     me.setHtmlPageToProcess(tempPage);
     // Spawn phantomjs
-    portfinder.getPort(function(err, port) {
+    portfinder.getPort(function (err, port) {
         if (err) {
             throw "Error getting port" + err;
         }
         me.port = port;
         var page = me.startWebServerToHostPage(tempPage);
-        console.log('page: '  + page);
         phantomjs.spawn(page, {
             // Additional PhantomJS options.
             options: {
                 phantomScript: asset("phantomjs" + path.sep + "main.js"),
-                loadImages: false
+                loadImages: false,
+                failCode: -1
             },
             // Complete the task when done.
             done: function (err) {
