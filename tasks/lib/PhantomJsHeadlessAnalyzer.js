@@ -12,6 +12,7 @@
 var grunt        = require("grunt"),
     phantomjs    = require("grunt-lib-phantomjs").init(grunt),
     connect      = require("connect"),
+    serveStatic = require('serve-static'),
     // Nodejs libs.
     path         = require("path"),
     fs           = require("fs"),
@@ -202,10 +203,10 @@ function turnUrlIntoRelativeDirectory(relativeTo, url, port) {
 }
 
 PhantomJsHeadlessAnalyzer.prototype.startWebServerToHostPage = function (tempPage) {
-    this.app = connect()
-              //.use(connect.logger('dev'))
-              .use(connect["static"](this.webRoot))
-              .listen(this.port);
+     this.app = connect()
+               .use(serveStatic(this.webRoot))
+               .listen(this.port);
+
     var pathSepReplacement = new RegExp("\\" + path.sep, "g");
     grunt.log.debug("Connect started: " + "http://localhost:" + this.port + "/" + tempPage.replace(pathSepReplacement, "/") + "  -  " + this.webRoot);
     return "http://localhost:" + this.port + "/" + tempPage.replace(pathSepReplacement, "/");
@@ -297,7 +298,7 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
         trace.forEach(function (t) {
             msgStack.push(" -> " + t.file + ": " + t.line + (t["function"] ? " (in function \"" + t["function"] + "\")" : ""));
         });
-        grunt.verbose.error(msgStack.join("\n"));
+        grunt.log.warn(msgStack.join("\n"));
     });
 
     // Create some kind of "all done" event.
