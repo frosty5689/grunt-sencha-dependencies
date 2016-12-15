@@ -12,6 +12,7 @@
 var grunt        = require("grunt"),
     phantomjs    = require("grunt-lib-phantomjs").init(grunt),
     connect      = require("connect"),
+    serveStatic = require('serve-static'),
     // Nodejs libs.
     path         = require("path"),
     fs           = require("fs"),
@@ -89,9 +90,9 @@ PhantomJsHeadlessAnalyzer.prototype.setSenchaDir = function (_senchaDir) {
 
     if (stats.isDirectory()) {
         // if is dir - check for app.json
-        if (oneOfExistsInDir(resolvedDir, ["sencha-touch.js", "sencha-touch-debug.js", "sencha-touch-all.js", "sencha-touch-all-debug.js"])) {
+        if (oneOfExistsInDir(resolvedDir, ["build/sencha-touch.js", "build/sencha-touch-debug.js", "build/sencha-touch-all.js", "build/sencha-touch-all-debug.js"])) {
             this.isTouch = true;
-        } else if (oneOfExistsInDir(resolvedDir, ["ext.js", "ext-debug.js", "ext-all.js", "ext-all-debug.js"])) {
+        } else if (oneOfExistsInDir(resolvedDir, ["build/ext.js", "build/ext-debug.js", "build/ext-all.js", "build/ext-all-debug.js"])) {
             this.isTouch = false;
         } else {
             grunt.log.error("Could not find any of the expected Sencha Touch or Ext.js files in senchaDir " + resolvedDir);
@@ -106,7 +107,7 @@ PhantomJsHeadlessAnalyzer.prototype.getSenchaFrameworkDir = function () {
 };
 
 PhantomJsHeadlessAnalyzer.prototype.getSenchaCoreFile = function () {
-    return path.normalize(this.webRoot + path.sep + this.pageRoot + path.sep + this.senchaDir  + path.sep + (this.isTouch ? "sencha-touch-debug.js" : "ext-debug.js"));
+    return path.normalize(this.webRoot + path.sep + this.pageRoot + path.sep + this.senchaDir  + path.sep + (this.isTouch ? "build/sencha-touch-debug.js" : "build/ext-debug.js"));
 };
 
 PhantomJsHeadlessAnalyzer.prototype.normaliseFilePaths = function (filePaths) {
@@ -126,7 +127,7 @@ PhantomJsHeadlessAnalyzer.prototype.normaliseFilePath = function (filePath) {
         filePath = filePath.substring(1);
     } else {
         filePath = this.pageRoot + path.sep + filePath;
-    } 
+    }
     return path.normalize(filePath);
 };
 
@@ -202,10 +203,10 @@ function turnUrlIntoRelativeDirectory(relativeTo, url, port) {
 }
 
 PhantomJsHeadlessAnalyzer.prototype.startWebServerToHostPage = function (tempPage) {
-    this.app = connect()
-              //.use(connect.logger('dev'))
-              .use(connect["static"](this.webRoot))
-              .listen(this.port);
+     this.app = connect()
+               .use(serveStatic(this.webRoot))
+               .listen(this.port);
+
     var pathSepReplacement = new RegExp("\\" + path.sep, "g");
     grunt.log.debug("Connect started: " + "http://localhost:" + this.port + "/" + tempPage.replace(pathSepReplacement, "/") + "  -  " + this.webRoot);
     return "http://localhost:" + this.port + "/" + tempPage.replace(pathSepReplacement, "/");
@@ -272,11 +273,11 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
 
     phantomjs.on("onResourceRequested", function (response) {
         if (!hasSeenSenchaLib) {
-            if (/\/ext(-all|-all-debug|-debug){0,1}.js/.test(response.url)) {
-                me.setSenchaDir(turnUrlIntoRelativeDirectory(me.pageRoot, response.url, me.port));
+            if (/\/build\/ext(-all|-all-debug|-debug){0,1}.js/.test(response.url)) {
+                me.setSenchaDir(turnUrlIntoRelativeDirectory(me.pageRoot, response.url.substring(0, response.url.lastIndexOf("build/")), me.port));
                 hasSeenSenchaLib = true;
-            } else if (/\/sencha-touch(-all|-all-debug|-debug){0,1}.js/.test(response.url)) {
-                me.setSenchaDir(turnUrlIntoRelativeDirectory(me.pageRoot, response.url, me.port));
+            } else if (/\/build\/sencha-touch(-all|-all-debug|-debug){0,1}.js/.test(response.url)) {
+                me.setSenchaDir(turnUrlIntoRelativeDirectory(me.pageRoot,  response.url.substring(0, response.url.lastIndexOf("build/")), me.port));
                 me.isTouch = true;
                 hasSeenSenchaLib = true;
             }
@@ -297,7 +298,7 @@ PhantomJsHeadlessAnalyzer.prototype.getDependencies = function (doneFn, task) {
         trace.forEach(function (t) {
             msgStack.push(" -> " + t.file + ": " + t.line + (t["function"] ? " (in function \"" + t["function"] + "\")" : ""));
         });
-        grunt.verbose.error(msgStack.join("\n"));
+        grunt.log.warn(msgStack.join("\n"));
     });
 
     // Create some kind of "all done" event.
