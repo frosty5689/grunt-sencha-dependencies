@@ -2,7 +2,9 @@
 module.exports = function (array, senchaDir, grunt, prop_prefix) {
     var ext_core_files = [],
         app_files = [],
-        regX = new RegExp("^" + senchaDir);
+        // Bug fix for Windows unable to split determine Ext files
+        // https://github.com/mattgoldspink/grunt-sencha-dependencies/issues/32
+        regX = new RegExp("^" + senchaDir.replace(/\\/g, '\\\\'));
 
     for (var i = 0, len = array.length; i < len; i++) {
         var file = array[i];

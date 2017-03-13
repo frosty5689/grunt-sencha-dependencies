@@ -63,6 +63,10 @@ PhantomJsHeadlessAnalyzer.prototype.setExclusions = function (exclude) {
     if (typeof this.exclude == "string") {
         this.exclude = [this.exclude];
     }
+    // Must normalize path for Windows
+    for (var i = 0, len = this.exclude.length; i < len; i++) {
+        this.exclude[i] = path.normalize(exclude[i]);
+    }
 };
 
 
@@ -135,6 +139,7 @@ PhantomJsHeadlessAnalyzer.prototype.reorderFiles = function (history) {
     var files = [],
         coreFile = this.getSenchaCoreFile(),
         appFile = path.normalize(this.webRoot + path.sep + this.pageRoot + path.sep + this.appJsFilePath);
+
     this.addIfNotExcluded(coreFile, files);
     for (var i = 0, len = history.length; i < len; i++) {
         var filePath = this.webRoot + history[i];
